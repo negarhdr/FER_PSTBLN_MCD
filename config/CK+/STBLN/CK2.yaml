@@ -1,0 +1,47 @@
+work_dir: ./work_dir/FER/CK/PST-BLN2
+model_saved_name: ./FER/CK/PST-BLN2
+results_file_name: ./results/CK_PSTBLN2_results.txt
+
+# feeder
+feeder: feeders.feeder.Feeder
+train_feeder_args:
+  data_path: ../../data/CK+/10fold/Train_2.npy
+  label_path: ../../data/CK+/10fold/Train_labels2.pkl
+  debug: False
+  random_choose: False
+  random_shift: False
+  random_move: False
+  window_size: -1
+  normalization: False
+
+test_feeder_args:
+  data_path: ../../data/CK+/10fold/Val_2.npy
+  label_path: ../../data/CK+/10fold/Val_labels2.pkl
+
+# model
+model: model.stbln.Model
+old_model_path: ./runs/
+numlayers: 20
+numblocks: 50
+model_args:
+  topology: []
+  blocksize: 5
+  num_class: 7
+  num_point: 51
+  num_person: 1
+  graph: graph.CK.Graph
+  graph_args:
+    labeling_mode: 'spatial'
+
+#optim
+weight_decay: 0.0005
+base_lr: 0.1
+step: [3000]
+
+# training
+device: [0,1]
+batch_size: 128
+test_batch_size: 128
+num_epoch: 350
+nesterov: True
+#weights: ./runs/trianloss/ntu_cv_agcn_joint-7-2.pt
