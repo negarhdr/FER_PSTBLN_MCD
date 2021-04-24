@@ -1,0 +1,11 @@
+progressive method doesn't need glu ( we try without GLU )
+
+1. you might need to try the best trained models with dropout inference
+
+2. you might need to also train using dropout and if there is no difference, it is better
+
+3. try two stream for the AFEW first. if it improved the performance then use it for other datasets too
+but if only dropout improves the performance, you don't need to use two stream for others
+
+4. try two stream only for stbln which is your method
+
