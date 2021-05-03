@@ -1,12 +1,13 @@
-work_dir: ./work_dir/FER/CASIA/PST-BLN0
-model_saved_name: ./FER/CASIA/PST-BLN0
-results_file_name: ./results/CASIA_PSTBLN0_results.txt
-
+work_dir: ./work_dir/FER/CASIA/PSTBLN_bone_mcdo_7
+model_saved_name: ./FER/CASIA/PSTBLN_bone_mcdo_7
+results_file_name: ./results/CASIA/CASIA_PSTBLN_bone_mcdo_results_7.txt
+MonteCarloDropOut: True
+MCDO_repeats: 100
 # feeder
 feeder: feeders.feeder.Feeder
 train_feeder_args:
-  data_path: ../../data/CASIA/Train_0.npy
-  label_path: ../../data/CASIA/train_labels0.pkl
+  data_path: ../data/CASIA/Train_bone_7.npy
+  label_path: ../data/CASIA/train_labels7.pkl
   debug: False
   random_choose: False
   random_shift: False
@@ -15,11 +16,11 @@ train_feeder_args:
   normalization: False
 
 test_feeder_args:
-  data_path: ../../data/CASIA/Val_0.npy
-  label_path: ../../data/CASIA/val_labels0.pkl
+  data_path: ../data/CASIA/Val_bone_7.npy
+  label_path: ../data/CASIA/val_labels7.pkl
 
 # model
-model: model.stbln.Model
+model: model.stbln_mcdo.Model
 old_model_path: ./runs/
 numlayers: 20
 numblocks: 50
@@ -27,7 +28,7 @@ model_args:
   topology: []
   blocksize: 5
   num_class: 6
-  num_point: 51
+  num_point: 309
   num_person: 1
   graph: graph.CASIA.Graph
   graph_args:
@@ -44,3 +45,4 @@ batch_size: 128
 test_batch_size: 128
 num_epoch: 350
 nesterov: True
+#weights: ./runs/trianloss/ntu_cv_agcn_joint-7-2.pt

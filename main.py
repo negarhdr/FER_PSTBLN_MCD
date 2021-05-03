@@ -69,7 +69,9 @@ def get_parser():
         default='./config/nturgbd-cross-view/test_bone.yaml',
         help='path to the configuration file')
 
-    parser.add_argument('-results_file_name', default='AFEW_STBLN_results.txt')
+    parser.add_argument('-results_file_name', default='AFEW_PSTBLN_results.txt')
+    parser.add_argument('-MonteCarloDropOut', default=False)
+    parser.add_argument('-MCDO_repeats', default=100)
 
     # processor
     parser.add_argument(
@@ -421,7 +423,10 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            output = self.model(data)
+            mcdo_ = False
+            if arg.MonteCarloDropOut:
+                mcdo_ = True
+            output = self.model(data, mcdo=mcdo_)
             # if batch_idx == 0 and epoch == 0:
             #     self.train_writer.add_graph(self.model, output)
             if isinstance(output, tuple):
@@ -496,7 +501,17 @@ class Processor():
                         label.long().cuda(self.output_device),
                         requires_grad=False,
                         volatile=True)
-                    output = self.model(data)
+
+                    if arg.MonteCarloDropOut:
+                        output = [self.model(data, mcdo=True) for _ in range(arg.MCDO_repeats)]
+                        list_output = []
+                        for i in range(len(output)):
+                            list_output.append(output[i].cpu())
+                        output = torch.stack(list_output).mean(axis=0)
+                        output = output.cuda(self.output_device)
+                    else:
+                        output = self.model(data, mcdo=False)
+
                     if isinstance(output, tuple):
                         output, l1 = output
                         l1 = l1.mean()

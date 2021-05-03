@@ -51,11 +51,10 @@ class unit_tcn(nn.Module):
 
 
 class unit_gcn(nn.Module):
-    def __init__(self, in_channels, out_channels, A, coff_embedding=4, num_subset=3):
+    def __init__(self, in_channels, out_channels, num_point, num_subset=3):
         super(unit_gcn, self).__init__()
-        self.PA = nn.Parameter(torch.from_numpy(A.astype(np.float32)))
+        self.PA = nn.Parameter(torch.from_numpy(np.random.rand(num_subset, num_point, num_point).astype(np.float32)))
         nn.init.constant_(self.PA, 1e-6)
-        self.A = Variable(torch.from_numpy(A.astype(np.float32)), requires_grad=False)
         self.num_subset = num_subset
 
         self.conv_d = nn.ModuleList()
@@ -100,7 +99,7 @@ class unit_gcn(nn.Module):
 
 
 class TCN_GCN_unit(nn.Module):
-    def __init__(self, topology, blocksize, i, A, stride=1, residual=True):
+    def __init__(self, topology, blocksize, i, num_point, stride=1, residual=True):
         super(TCN_GCN_unit, self).__init__()
         
         if i == 0:
@@ -108,19 +107,13 @@ class TCN_GCN_unit(nn.Module):
             residual = False
         else:
             in_channels = topology[i-1] * blocksize #the normal one
-            #in_channels = topology[i-1] * (blocksize*i)  # when we increase the block size gradually 
-            #in_channels = blocksize[i-1] ## fixed blocks in 10 layers
 
         out_channels = topology[i] * (blocksize) #the normal one
-        #out_channels = blocksize[i] ### fixed blocks in 10 layers
-        #out_channels = topology[i] * (blocksize*(i+1))  ### when we increase block size gradually
-        
+
         if i==4 or i==7 :
             stride = 2
-      
-        #self.gcns = nn.ModuleDict({'gcn{}.{}'.format(i,b): unit_gcn(in_channels,block_size,A) for b in range(topology[i])})
-       
-        self.gcn1 = unit_gcn(in_channels, out_channels, A)
+
+        self.gcn1 = unit_gcn(in_channels, out_channels, num_point)
         self.tcn1 = unit_tcn(out_channels, out_channels, stride=stride)
         self.relu = nn.ReLU()
         if not residual:
@@ -138,7 +131,7 @@ class TCN_GCN_unit(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, topology, blocksize, num_class=6, num_point=51, num_person=1, graph=None, graph_args=dict(), in_channels=2):
+    def __init__(self, topology, blocksize, num_class=6, num_point=312, num_person=1, graph=None, graph_args=dict(), in_channels=2):
         super(Model, self).__init__()
 
         if graph is None:
@@ -147,19 +140,18 @@ class Model(nn.Module):
             Graph = import_class(graph)
             self.graph = Graph(**graph_args)
 
-        A = self.graph.A
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
-        
+        self.dropout_ = nn.Dropout(p=0.2)
         self.topology = topology
         self.num_layers = len(self.topology)
         self.block_size = blocksize
-        self.layers = nn.ModuleDict({'l{}'.format(i): TCN_GCN_unit(self.topology,self.block_size,i,A) for i in range(self.num_layers)})
+        self.layers = nn.ModuleDict({'l{}'.format(i): TCN_GCN_unit(self.topology, self.block_size,i, num_point=num_point) for i in range(self.num_layers)})
 
         self.fc = nn.Linear(self.block_size *  topology[-1] , num_class) #the normal one
         nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)
 
-    def forward(self, x):
+    def forward(self, x, mcdo=False):
         N, C, T, V, M = x.size()
 
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
@@ -167,6 +159,8 @@ class Model(nn.Module):
         x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
         
         for i in range(self.num_layers):
+            if mcdo:
+                x = self.dropout_(x)
             x = self.layers['l'+str(i)](x)
 
 
