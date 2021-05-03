@@ -28,7 +28,7 @@ model_args:
   topology: []
   blocksize: 5
   num_class: 7
-  num_point: 51
+  num_point: 312
   num_person: 1
   graph: graph.AFEW.Graph
   graph_args:
