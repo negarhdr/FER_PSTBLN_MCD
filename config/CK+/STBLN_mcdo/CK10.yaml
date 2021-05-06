@@ -19,7 +19,7 @@ test_feeder_args:
   label_path: ../data/CK+/10fold/Val_labels9.pkl
 
 # model
-model: model.agcn.Model
+model: model.stbln_mcdo.Model
 old_model_path: ./runs/
 numlayers: 20
 numblocks: 50
