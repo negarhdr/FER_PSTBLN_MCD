@@ -1,6 +1,6 @@
-work_dir: ./work_dir/FER/CASIA/PSTBLN_bone_mcdo_3
-model_saved_name: ./FER/CASIA/PSTBLN_bone_mcdo_3
-results_file_name: ./results/CASIA/CASIA_PSTBLN_bone_mcdo_results_3.txt
+work_dir: ./work_dir/FER/CASIA/STBLN_bone_mcdo_3
+model_saved_name: ./FER/CASIA/STBLN_bone_mcdo_3
+results_file_name: ./results/CASIA/CASIA_STBLN_bone_mcdo_results_3.txt
 MonteCarloDropOut: True
 MCDO_repeats: 100
 # feeder
@@ -20,14 +20,10 @@ test_feeder_args:
   label_path: ../data/CASIA/val_labels3.pkl
 
 # model
-model: model.pstbln.PSTBLN
-model_name: PSTBLN
+model: model.stbln.STBLN
+model_name: STBLN
 old_model_path: ./runs/
-numlayers: 20
-numblocks: 50
 model_args:
-  topology: []
-  blocksize: 5
   num_class: 6
   num_point: 309
   num_person: 1

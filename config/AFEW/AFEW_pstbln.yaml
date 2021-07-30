@@ -1,13 +1,13 @@
-work_dir: ./work_dir/FER/CASIA/PSTBLN_bone_mcdo_3
-model_saved_name: ./FER/CASIA/PSTBLN_bone_mcdo_3
-results_file_name: ./results/CASIA/CASIA_PSTBLN_bone_mcdo_results_3.txt
+work_dir: ./work_dir/FER/AFEW/PST-BLN
+model_saved_name: ./FER/AFEW/PST-BLN
+results_file_name: ./results/AFEW/AFEW_PSTBLN_mcdo_results.txt
 MonteCarloDropOut: True
 MCDO_repeats: 100
 # feeder
 feeder: feeders.feeder.Feeder
 train_feeder_args:
-  data_path: ../data/CASIA/Train_bone_3.npy
-  label_path: ../data/CASIA/train_labels3.pkl
+  data_path: ../data/AFEW/Aug_Train_bone.npy
+  label_path: ../data/AFEW/Aug_train_labels.pkl
   debug: False
   random_choose: False
   random_shift: False
@@ -16,8 +16,8 @@ train_feeder_args:
   normalization: False
 
 test_feeder_args:
-  data_path: ../data/CASIA/Val_bone_3.npy
-  label_path: ../data/CASIA/val_labels3.pkl
+  data_path: ../data/AFEW/norm_Val_bone.npy
+  label_path: ../data/AFEW/val_labels.pkl
 
 # model
 model: model.pstbln.PSTBLN
@@ -28,8 +28,8 @@ numblocks: 50
 model_args:
   topology: []
   blocksize: 5
-  num_class: 6
-  num_point: 309
+  num_class: 7
+  num_point: 312
   num_person: 1
 
 #optim
@@ -41,5 +41,5 @@ step: [3000]
 device: [0]
 batch_size: 128
 test_batch_size: 128
-num_epoch: 350
+num_epoch: 300 
 nesterov: True

@@ -131,6 +131,7 @@ def get_parser():
 
     # model
     parser.add_argument('--model', default=None, help='the model will be used')
+    parser.add_argument('--model_name', default='STBLN', help='the name of the model will be used')
     parser.add_argument(
         '--model-args',
         type=dict,
@@ -273,11 +274,10 @@ class Processor():
         self.output_device = output_device
         Model = import_class(self.arg.model)
         shutil.copy2(inspect.getfile(Model), self.arg.work_dir)
-        #print(Model)
+        # print(Model)
         self.model = Model(**self.arg.model_args).cuda(output_device)
         print(self.model)
         self.loss = nn.CrossEntropyLoss().cuda(output_device)
-
         if self.arg.weights:
             self.global_step = int(arg.weights[:-3].split('-')[-1])
             self.print_log('Load weights from {}.'.format(self.arg.weights))
@@ -286,13 +286,10 @@ class Processor():
                     weights = pickle.load(f)
             else:
                 weights = torch.load(self.arg.weights)
-
             weights = OrderedDict(
-                [[k.split('module.')[-1],
-                  v.cuda(output_device)] for k, v in weights.items()])
-
+                [[k.split('module.')[-1], v.cuda(output_device)] for k, v in weights.items()])
             keys = list(weights.keys())
-            #print(keys) ### added
+            # print(keys)
             for w in self.arg.ignore_weights:
                 for key in keys:
                     if w in key:
@@ -300,7 +297,6 @@ class Processor():
                             self.print_log('Sucessfully Remove Weights: {}.'.format(key))
                         else:
                             self.print_log('Can Not Remove Weights: {}.'.format(key))
-
             try:
                 self.model.load_state_dict(weights)
                 ##### added ##### 
@@ -390,6 +386,12 @@ class Processor():
         self.record_time()
         return split_time
 
+    def enable_dropout(self):
+        for each_module in self.model.modules():
+            if each_module.__class__.__name__.startswith('Dropout'):
+                each_module.train()
+                print('Dropout is enabled for inference')
+
     def train(self, epoch, save_model=False):
         self.model.train()
         self.print_log('Training epoch: {}'.format(epoch + 1))
@@ -414,7 +416,6 @@ class Processor():
                 for key, value in self.model.named_parameters():
                     if 'PA' in key:
                         value.requires_grad = False
-                        # print(key + '-not require grad')
         for batch_idx, (data, label, index) in enumerate(process):
             self.global_step += 1
             # get data
@@ -423,12 +424,7 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            mcdo_ = False
-            if arg.MonteCarloDropOut:
-                mcdo_ = True
-            output = self.model(data, mcdo=mcdo_)
-            # if batch_idx == 0 and epoch == 0:
-            #     self.train_writer.add_graph(self.model, output)
+            output = self.model(data)
             if isinstance(output, tuple):
                 output, l1 = output
                 l1 = l1.mean()
@@ -453,10 +449,6 @@ class Processor():
             # statistics
             self.lr = self.optimizer.param_groups[0]['lr']
             self.train_writer.add_scalar('lr', self.lr, self.global_step)
-            # if self.global_step % self.arg.log_interval == 0:
-            #     self.print_log(
-            #         '\tBatch({}/{}) done. Loss: {:.4f}  lr:{:.6f}'.format(
-            #             batch_idx, len(loader), loss.data[0], lr))
             timer['statistics'] += self.split_time()
 
         # statistics of time consumption and loss
@@ -486,9 +478,9 @@ class Processor():
         for ln in loader_name:
             loss_value = []
             score_frag = []
-            right_num_total = 0
-            total_num = 0
-            loss_total = 0
+            lbls = []
+            preds = []
+            outs = []
             step = 0
             process = tqdm(self.data_loader[ln])
             for batch_idx, (data, label, index) in enumerate(process):
@@ -501,16 +493,17 @@ class Processor():
                         label.long().cuda(self.output_device),
                         requires_grad=False,
                         volatile=True)
-
                     if arg.MonteCarloDropOut:
-                        output = [self.model(data, mcdo=True) for _ in range(arg.MCDO_repeats)]
+                        self.enable_dropout()
+                        output = [self.model(data) for _ in range(arg.MCDO_repeats)]
                         list_output = []
                         for i in range(len(output)):
                             list_output.append(output[i].cpu())
+                        std_ = torch.stack(list_output).std(axis=0)
                         output = torch.stack(list_output).mean(axis=0)
                         output = output.cuda(self.output_device)
                     else:
-                        output = self.model(data, mcdo=False)
+                        output = self.model(data)
 
                     if isinstance(output, tuple):
                         output, l1 = output
@@ -523,6 +516,9 @@ class Processor():
 
                     _, predict_label = torch.max(output.data, 1)
                     step += 1
+                    lbls.append(label.data.cpu().numpy())
+                    preds.append(predict_label.data.cpu().numpy())
+                    outs.append(output.data.cpu().numpy())
 
                 if wrong_file is not None or result_file is not None:
                     predict = list(predict_label.cpu().numpy())
@@ -534,7 +530,9 @@ class Processor():
                             f_w.write(str(index[i]) + ',' + str(x) + ',' + str(true[i]) + '\n')
             score = np.concatenate(score_frag)
             loss = np.mean(loss_value)
-            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
+            preds_val = np.concatenate(preds)
+            lbls_val = np.concatenate(lbls)
+            accuracy = np.mean((preds_val == lbls_val))
             if accuracy > self.best_acc:
                 self.best_acc = accuracy
             # self.lr_scheduler.step(loss)
@@ -557,20 +555,22 @@ class Processor():
                         self.arg.work_dir, epoch + 1, ln), 'wb') as f:
                     pickle.dump(score_dict, f)
 
-    def prog_init(self, layer_iter, block_iter):
+    def prog_init(self, block_iter):
         if block_iter == 0:
-            weights = torch.load(self.arg.model_saved_name + '-' + str(len(self.arg.model_args['topology'])-1) + '-' + str(self.arg.model_args['topology'][-2]) + '.pt')
+            weights = torch.load(self.arg.model_saved_name + '-' + str(len(self.arg.model_args['topology'])-1) + '-' +
+                                 str(self.arg.model_args['topology'][-2]) + '.pt')
         else:
-            weights = torch.load(self.arg.model_saved_name + '-' + str(len(self.arg.model_args['topology'])) + '-' + str(self.arg.model_args['topology'][-1]-1) + '.pt')
-
+            weights = torch.load(self.arg.model_saved_name + '-' + str(len(self.arg.model_args['topology'])) + '-' +
+                                 str(self.arg.model_args['topology'][-1]-1) + '.pt')
         weights = OrderedDict([[k, v.cuda(self.output_device)] for k, v in weights.items()])
         old_keys = list(weights.keys())
         for current_key in self.model.state_dict():
-            if ('PA') in current_key:
-                 if current_key in old_keys:  
-                     new_state_dict = OrderedDict({current_key: weights[current_key]})
-                     self.model.load_state_dict(new_state_dict, strict=False)
-            if ('conv_d' or 'down' or  'tcn1.conv.bias' or 'residual' or 'bn.weight' or 'bn.bias' or 'bn.running_mean' or 'bn.running_var') in current_key:
+            if 'PA' in current_key:
+                if current_key in old_keys:
+                    new_state_dict = OrderedDict({current_key: weights[current_key]})
+                    self.model.load_state_dict(new_state_dict, strict=False)
+            if ('conv_d' or 'down' or 'tcn1.conv.bias' or 'residual' or 'bn.weight' or 'bn.bias' or 'bn.running_mean' or
+                'bn.running_var') in current_key:
                 if current_key in old_keys:
                     A = self.model.state_dict()[current_key]
                     old_sh = weights[current_key].shape
@@ -578,16 +578,14 @@ class Processor():
                     A[:old_sh[0]] = weights[current_key]
                     new_state_dict = OrderedDict({current_key: A})
                     self.model.load_state_dict(new_state_dict, strict=False)
-
-            if ('tcn1.conv.weight') in current_key:
+            if 'tcn1.conv.weight' in current_key:
                 if current_key in old_keys:
                     A = self.model.state_dict()[current_key]
                     old_sh = weights[current_key].shape
                     A[:old_sh[0], :old_sh[1]] = weights[current_key]
                     new_state_dict = OrderedDict({current_key: A})
                     self.model.load_state_dict(new_state_dict, strict=False)
-
-            if ('fc.weight' in current_key) and (block_iter > 0 ):
+            if ('fc.weight' in current_key) and (block_iter > 0):
                 if current_key in old_keys:
                     A = self.model.state_dict()[current_key]
                     old_sh = weights[current_key].shape
@@ -597,78 +595,80 @@ class Processor():
 
     def start(self):
         if self.arg.phase == 'train':
-            acc_layer_old = 1e-10 
-            acc_block_old = 1e-10
-            acc_layer_new = 1e-10
-            acc_block_new = 1e-10
-            loss_layer_old = 1e+10 
-            loss_block_old = 1e+10
-            loss_layer_new = 1e+10
-            loss_block_new = 1e+10
-            for layer_iter in range(self.arg.numlayers):
-                self.arg.model_args['topology'].append(0) ### add one layer 
-                for block_iter in range(self.arg.numblocks):
-                    print('######################################################################\n')
-                    print('layer.' + str(layer_iter) + '_block.' + str(block_iter))
-                    print('\n######################################################################\n')
-                    self.arg.model_args['topology'][layer_iter] = self.arg.model_args['topology'][layer_iter] + 1 ### add one block
-                    self.load_model()
-                    self.load_optimizer()
-                    self.lr = self.arg.base_lr
-                    self.best_acc = 0
-                    #self.best_train_acc = 0
-                    #self.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
-                    self.global_step = self.arg.start_epoch * len(self.data_loader['train']) / self.arg.batch_size
-                    if (layer_iter > 0 or block_iter > 0):
-                        self.prog_init(layer_iter, block_iter)
-                    for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
-                        if self.lr < 1e-3:
-                            break
-                        save_model = (epoch + 1 == self.arg.num_epoch)
-                        train_loss, train_acc = self.train(epoch, save_model=save_model)
-                        #if train_acc > self.best_train_acc:
-                        #   self.best_train_acc = train_acc
-                        self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
-                        acc_block_new = train_acc
-                        loss_block_new = train_loss
-                    ############ training is finished in N epochs ###################
-                    
-                    print('best accuracy: ', self.best_acc, ' model_name: ', self.arg.model_saved_name)
-                    with open(arg.results_file_name, 'a') as fid:
-                        fid.write('layer %.2f \t' % (layer_iter))
-                        fid.write('block %.2f \n' % (block_iter))
-                        fid.write('Network Topology: %s \n' % (self.arg.model_args['topology']))
-                        fid.write('Finish training with following performance: \n')
-                        fid.write('best test Acc: %.4f, block_size: %.2f \n' % (self.best_acc,self.arg.model_args['blocksize']))
-                        fid.write('train loss: %.4f \n' % (loss_block_new))
-
-
-
-                    if block_iter > 0:
-                        loss_b = -1*(loss_block_new - loss_block_old)/loss_block_old
-                        acc_b = (acc_block_new - acc_block_old)/acc_block_old
-                        if loss_b <= self.arg.block_threshold: #and loss_b <= self.arg.block_threshold:
-                            self.arg.model_args['topology'][layer_iter] = self.arg.model_args['topology'][layer_iter] -1 
-                            print('block' + str(block_iter)+ 'of layer' + str(layer_iter) + 'is removed \n')
-                            print('block progression is stopped in layer' + str(layer_iter))
-                            break
-                        
-                    acc_block_old = acc_block_new
-                    acc_layer_new = acc_block_new
-                    loss_block_old = loss_block_new
-                    loss_layer_new = loss_block_new
-                
-                if layer_iter > 0:
-                    loss_l = -1*(loss_layer_new - loss_layer_old)/loss_layer_old
-                    acc_l = (acc_layer_new - acc_layer_old)/acc_layer_old
-                    if loss_l <= self.arg.layer_threshold: #and loss_l <= self.arg.layer_threshold: ### it was less than equal ### changed 
-                        self.arg.model_args['topology'].pop() ### remove the topology of last layer
-                        print('layer' + str(layer_iter) + 'is removed \n')
-                        print('layer progression is stopped')
-                        print(acc_layer_old)
+            if arg.model_name == 'STBLN':
+                for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
+                    if self.lr < 1e-3:
                         break
-                acc_layer_old = acc_layer_new
-                loss_layer_old = loss_layer_new
+                    save_model = (epoch + 1 == self.arg.num_epoch)
+                    self.train(epoch, save_model=save_model)
+                    self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                print('best accuracy: ', self.best_acc, ' model_name: ', self.arg.model_saved_name)
+            elif arg.model_name == 'PSTBLN':
+                acc_layer_old = 1e-10
+                acc_block_old = 1e-10
+                acc_layer_new = 1e-10
+                acc_block_new = 1e-10
+                loss_layer_old = 1e+10
+                loss_block_old = 1e+10
+                loss_layer_new = 1e+10
+                loss_block_new = 1e+10
+                for layer_iter in range(self.arg.numlayers):
+                    self.arg.model_args['topology'].append(0) ### add one layer
+                    for block_iter in range(self.arg.numblocks):
+                        print('######################################################################\n')
+                        print('layer.' + str(layer_iter) + '_block.' + str(block_iter))
+                        print('\n######################################################################\n')
+                        self.arg.model_args['topology'][layer_iter] = self.arg.model_args['topology'][layer_iter] + 1 ### add one block
+                        self.load_model()
+                        self.load_optimizer()
+                        self.lr = self.arg.base_lr
+                        self.best_acc = 0
+                        self.global_step = self.arg.start_epoch * len(self.data_loader['train']) / self.arg.batch_size
+                        if layer_iter > 0 or block_iter > 0:
+                            self.prog_init(block_iter)
+                        for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
+                            if self.lr < 1e-3:
+                                break
+                            save_model = (epoch + 1 == self.arg.num_epoch)
+                            train_loss, train_acc = self.train(epoch, save_model=save_model)
+                            # if train_acc > self.best_train_acc:
+                            #   self.best_train_acc = train_acc
+                            self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                            acc_block_new = train_acc
+                            loss_block_new = train_loss
+                        # training is finished in N epochs
+                    
+                        print('best accuracy: ', self.best_acc, ' model_name: ', self.arg.model_saved_name)
+                        with open(arg.results_file_name, 'a') as fid:
+                            fid.write('layer %.2f \t' % (layer_iter))
+                            fid.write('block %.2f \n' % (block_iter))
+                            fid.write('Network Topology: %s \n' % (self.arg.model_args['topology']))
+                            fid.write('Finish training with following performance: \n')
+                            fid.write('best test Acc: %.4f, block_size: %.2f \n' % (self.best_acc,self.arg.model_args['blocksize']))
+                            fid.write('train loss: %.4f \n' % (loss_block_new))
+                        if block_iter > 0:
+                            loss_b = -1*(loss_block_new - loss_block_old)/loss_block_old
+                            acc_b = (acc_block_new - acc_block_old)/acc_block_old
+                            if loss_b <= self.arg.block_threshold:
+                                self.arg.model_args['topology'][layer_iter] = self.arg.model_args['topology'][layer_iter] -1
+                                print('block' + str(block_iter) + 'of layer' + str(layer_iter) + 'is removed \n')
+                                print('block progression is stopped in layer' + str(layer_iter))
+                                break
+                        acc_block_old = acc_block_new
+                        acc_layer_new = acc_block_new
+                        loss_block_old = loss_block_new
+                        loss_layer_new = loss_block_new
+                    if layer_iter > 0:
+                        loss_l = -1*(loss_layer_new - loss_layer_old)/loss_layer_old
+                        acc_l = (acc_layer_new - acc_layer_old)/acc_layer_old
+                        if loss_l <= self.arg.layer_threshold:
+                            self.arg.model_args['topology'].pop()  # remove the last layer
+                            print('layer' + str(layer_iter) + 'is removed \n')
+                            print('layer progression is stopped')
+                            print(acc_layer_old)
+                            break
+                    acc_layer_old = acc_layer_new
+                    loss_layer_old = loss_layer_new
 
         elif self.arg.phase == 'test':
             if not self.arg.test_feeder_args['debug']:
@@ -684,7 +684,6 @@ class Processor():
             self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], wrong_file=wf, result_file=rf)
             self.print_log('Done.\n')
 
-        np.save('Topology.npy',self.arg.model_args['topology'])
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -697,7 +696,7 @@ def str2bool(v):
 
 def import_class(name):
     components = name.split('.')
-    mod = __import__(components[0])  # import return model
+    mod = __import__(components[0])
     for comp in components[1:]:
         mod = getattr(mod, comp)
     return mod

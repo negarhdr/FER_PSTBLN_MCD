@@ -1,13 +1,13 @@
-work_dir: ./work_dir/FER/CASIA/PSTBLN_bone_mcdo_3
-model_saved_name: ./FER/CASIA/PSTBLN_bone_mcdo_3
-results_file_name: ./results/CASIA/CASIA_PSTBLN_bone_mcdo_results_3.txt
+work_dir: ./work_dir/FER/CASIA/STBLN_bone_mcdo_1
+model_saved_name: ./FER/CASIA/STBLN_bone_mcdo_1
+results_file_name: ./results/CASIA/CASIA_STBLN_bone_mcdo_results_1.txt
 MonteCarloDropOut: True
 MCDO_repeats: 100
 # feeder
 feeder: feeders.feeder.Feeder
 train_feeder_args:
-  data_path: ../data/CASIA/Train_bone_3.npy
-  label_path: ../data/CASIA/train_labels3.pkl
+  data_path: ../data/CASIA/Train_bone_1.npy
+  label_path: ../data/CASIA/train_labels1.pkl
   debug: False
   random_choose: False
   random_shift: False
@@ -16,18 +16,14 @@ train_feeder_args:
   normalization: False
 
 test_feeder_args:
-  data_path: ../data/CASIA/Val_bone_3.npy
-  label_path: ../data/CASIA/val_labels3.pkl
+  data_path: ../data/CASIA/Val_bone_1.npy
+  label_path: ../data/CASIA/val_labels1.pkl
 
 # model
-model: model.pstbln.PSTBLN
-model_name: PSTBLN
+model: model.stbln.STBLN
+model_name: STBLN
 old_model_path: ./runs/
-numlayers: 20
-numblocks: 50
 model_args:
-  topology: []
-  blocksize: 5
   num_class: 6
   num_point: 309
   num_person: 1
