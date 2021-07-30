@@ -32,15 +32,15 @@ The code is based on [2s-AGCN](https://github.com/lshiwjx/2s-AGCN).
  - After extracting the facial landmarks for each category, run the following script for data preprocessing and augmentation: 
   
   ```python
-  from opendr.perception.facial_expression_recognition.landmark_based_facial_expression_recognition.algorithm.datasets import AFEW_data_gen
-  from opendr.perception.facial_expression_recognition.landmark_based_facial_expression_recognition.algorithm.datasets import data_augmentation
+  from FER_PSTBLN_MCD.datasets import AFEW_data_gen
+  from FER_PSTBLN_MCD.datasets import data_augmentation
   python AFEW_data_gen.py --landmark_folder  ./data/AFEW_landmarks/ --data_folder ./data/AFEW_data/ 
   python data_aumentation.py --data_folder ./data/AFEW_data/ --aug_data_folder ./data/AFEW_aug_data/
   ```
   The preprocessed augmented data will be saved in the `--aug_data_folder` path. 
   After generating the preprocessed facial landmark data, generate the facial muscle data as follows:
   ```python
-  from opendr.perception.facial_expression_recognition.landmark_based_facial_expression_recognition.algorithm.datasets import gen_facial_muscles_data
+  from FER_PSTBLN_MCD.datasets import gen_facial_muscles_data
   python gen_facial_muscles_data.py --dataset_name AFEW --landmark_data_folder ./data/AFEW_aug_data/ --muscle_data_folder ./data/muscle_data/
   ```
   
