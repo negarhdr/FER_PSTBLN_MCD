@@ -244,8 +244,8 @@ class Processor():
             else:
                 self.train_writer = self.val_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'test'), 'test')
         self.global_step = 0
-        #self.load_model()
-        #self.load_optimizer()
+        self.load_model()
+        self.load_optimizer()
         self.load_data()
         self.lr = self.arg.base_lr
         self.best_acc = 0
@@ -465,7 +465,10 @@ class Processor():
         if save_model:
             state_dict = self.model.state_dict()
             weights = OrderedDict([[k,v.cpu()] for k, v in state_dict.items()])
-            torch.save(weights, self.arg.model_saved_name + '-' + str(len(self.arg.model_args['topology'])) + '-' + str(self.arg.model_args['topology'][-1]) + '.pt')
+            if arg.model_name == 'PSTBLN':
+                torch.save(weights, self.arg.model_saved_name + '-' + str(len(self.arg.model_args['topology'])) + '-' + str(self.arg.model_args['topology'][-1]) + '.pt')
+            elif arg.model_name == 'STBLN':
+                torch.save(weights, self.arg.model_saved_name + '-' + str(epoch) + '-' + str(int(self.global_step)) + '.pt')
         return loss, acc
     
     def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None):
