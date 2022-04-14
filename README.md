@@ -1,8 +1,8 @@
 # PST-BLN
 
 <div align="left">
-  <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-blue.svg" height="20">
+  <a href="https://creativecommons.org/licenses/by-nc/4.0/">
+    <img src="https://img.shields.io/badge/License-CC.BY.NC.4.0-blue.svg" height="20">
   </a>
   <a href="https://arxiv.org/abs/2106.04332">
     <img src="http://img.shields.io/badge/paper-arxiv.2106.04332-B31B1B.svg" height="20" >
