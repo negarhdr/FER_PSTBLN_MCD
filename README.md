@@ -1,5 +1,16 @@
 # PST-BLN
-The implementation of Progressive Spatio-Temporal Bilinear Network (PST-BLN) with Monte Carlo Dropout for Landmark-based Facial Expression Recognition with Uncertainty Estimation, MMSP 2021.
+
+<div align="left">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg" height="20">
+  </a>
+  <a href="https://arxiv.org/abs/2106.04332">
+    <img src="http://img.shields.io/badge/paper-arxiv.2106.04332-B31B1B.svg" height="20" >
+  </a>
+  <sup>
+</div>
+  
+The implementation of Progressive Spatio-Temporal Bilinear Network (PST-BLN) with Monte Carlo Dropout (MCD) for Landmark-based Facial Expression Recognition (FER) with Uncertainty Estimation, MMSP 2021.
 The code is based on [2s-AGCN](https://github.com/lshiwjx/2s-AGCN).
 
 # Data Preparation
@@ -8,7 +19,8 @@ The code is based on [2s-AGCN](https://github.com/lshiwjx/2s-AGCN).
   Download the [AFEW](https://cs.anu.edu.au/few/AFEW.html) [[1]](https://www.computer.org/csdl/magazine/mu/2012/03/mmu2012030034/13rRUxjQyrW), [[2]](https://dl.acm.org/doi/abs/10.1145/2663204.2666275), and [CK+](https://www.pitt.edu/~emotion/ck-spread.htm) [[3]](https://ieeexplore.ieee.org/abstract/document/5543262), [[4]](https://ieeexplore.ieee.org/abstract/document/840611) and [Oulu-CASIA](https://www.oulu.fi/cmvs/node/41316) [[5]](https://www.sciencedirect.com/science/article/pii/S0262885611000515) datasets. 
   In order to extract facial landmarks from the images, you need to download a pretrained landmark extractor model. 
   We used Dlib's landmark extractor which can be downloaded from [here](http://dlib.net/face_landmark_detection.py.html). 
-  Please note that these datasets and the landmark extractor model cannot be used for any commercial purposes. 
+  
+  &#8594; Please note that these datasets and the landmark extractor model cannot be used for any commercial purposes. 
   
   ##### AFEW data preparation:  
   AFEW dataset consists of a set of video clips collected from movies with actively moving faces in different illumination and environmental conditions. 
@@ -108,5 +120,17 @@ Please cite the following paper if you use this repository in your reseach.
           booktitle = {MMSP},  
           year      = {2021},  
     }
+  
+## Acknowledgement
+
+This work was supported by the European Union’s Horizon
+2020 Research and Innovation Action Program under Grant
+871449 (OpenDR).
+This tool is also integerated in the [OpenDR toolkit](https://github.com/opendr-eu/opendr). 
+<div align="center">
+<img src="https://user-images.githubusercontent.com/16520105/123549590-6a9f4b00-d772-11eb-998a-ed4c70133617.png" height="70"> <img src="https://user-images.githubusercontent.com/16520105/123549536-31ff7180-d772-11eb-9c81-6cc98b7d2e1e.png" height="70">
+</div>
+  
+  
 # Contact
 For any questions, feel free to contact: `negar.heidari@ece.au.dk`
