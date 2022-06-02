@@ -244,8 +244,9 @@ class Processor():
             else:
                 self.train_writer = self.val_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'test'), 'test')
         self.global_step = 0
-        self.load_model()
-        self.load_optimizer()
+        if arg.model_name == 'STBLN':
+            self.load_model()
+            self.load_optimizer()
         self.load_data()
         self.lr = self.arg.base_lr
         self.best_acc = 0
@@ -459,8 +460,7 @@ class Processor():
         self.print_log(
             '\tMean training loss: {:.4f}.'.format(np.mean(loss_value)))
         self.print_log(
-            '\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(
-                **proportion))
+            '\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(**proportion))
 
         if save_model:
             state_dict = self.model.state_dict()
@@ -621,7 +621,7 @@ class Processor():
                         print('######################################################################\n')
                         print('layer.' + str(layer_iter) + '_block.' + str(block_iter))
                         print('\n######################################################################\n')
-                        self.arg.model_args['topology'][layer_iter] = self.arg.model_args['topology'][layer_iter] + 1 ### add one block
+                        self.arg.model_args['topology'][layer_iter] = self.arg.model_args['topology'][layer_iter] + 1 # add one block
                         self.load_model()
                         self.load_optimizer()
                         self.lr = self.arg.base_lr
@@ -647,7 +647,7 @@ class Processor():
                             fid.write('block %.2f \n' % (block_iter))
                             fid.write('Network Topology: %s \n' % (self.arg.model_args['topology']))
                             fid.write('Finish training with following performance: \n')
-                            fid.write('best test Acc: %.4f, block_size: %.2f \n' % (self.best_acc,self.arg.model_args['blocksize']))
+                            fid.write('best test Acc: %.4f, block_size: %.2f \n' % (self.best_acc, self.arg.model_args['blocksize']))
                             fid.write('train loss: %.4f \n' % (loss_block_new))
                         if block_iter > 0:
                             loss_b = -1*(loss_block_new - loss_block_old)/loss_block_old

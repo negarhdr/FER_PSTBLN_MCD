@@ -35,7 +35,7 @@ def data_gen(landmark_path, num_frames, num_landmarks, num_dim, num_faces, class
             root, _, files = os.walk(class_path)
             T = len(files)
             if T > 0:  # if the sample video is a nonzero sample
-                sample_numpy = np.zeros((num_landmarks, num_dim, num_frames, num_faces))
+                sample_numpy = np.zeros((1, num_landmarks, num_dim, num_frames, num_faces))
                 for j in range(4):
                     if os.path.isfile(class_path + str(T - j - 1) + '.npy'):
                         sample_numpy[:, :, -1 - j, 0] = np.load(class_path + str(T - j - 1) + '.npy')
